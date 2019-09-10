@@ -1,6 +1,6 @@
 import requests
 import json
-import os
+
 
 def get_campsites(api_key, limit=50, offset=0):
 
@@ -14,6 +14,5 @@ def get_campsites(api_key, limit=50, offset=0):
     return r.json()
 
 if __name__ =='__main__':
-    api_key = os.environ['REC_GOV_KEY']
-    print(api_key)
+    print('hello')
     # test = get_campsites(api_key,1,0)

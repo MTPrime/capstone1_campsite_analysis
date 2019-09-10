@@ -4,8 +4,9 @@ import json
 import pandas as pd 
 import numpy as np 
 import os 
+import boto3
 
-def write_api_to_mongodb(db, table, client=MongoClient('localhost', 27017), num_call=0, limit=50):
+def write_api_to_mongodb(db, table, api_key, client=MongoClient('localhost', 27017), num_call=0, limit=50):
     
     #Instantiates Connection
     client = client
@@ -94,13 +95,12 @@ def structured_data_to_panda(cursor):
 if __name__ =='__main__':
     print('Hello')
     api_key = os.environ['REC_GOV_KEY']
-    print(f"API Key: {api_key}")
     client = MongoClient('localhost', 27017)
     db = client['campsites']
     table = db['test']
 
     # test = get_campsites(api_key,3, 0)
-    # write_api_to_mongodb('campsites', 'test', num_call=2)
+    # write_api_to_mongodb('campsites', 'test',api_key=api_key, num_call=10)
 
     
     # cursor2 = db.test.find({"RECDATA.CampsiteID":'70417'})
@@ -114,12 +114,25 @@ if __name__ =='__main__':
     # cursor = db.test.find({"CampsiteID":"88614"})
 
     structured_data_cursor = db.test.find()
-    # campsite_structured = structured_data_to_panda(structured_data_cursor)
+    df_campsite_structured = structured_data_to_panda(structured_data_cursor)
+    df_campsite_structured.to_csv(r'data/campsite_structured.csv', header=True)
 
     attribute_cursor = db.test.find()
-    df_attribute = unstructured_data_to_panda(attribute_cursor)
+    df_attributes = unstructured_data_to_panda(attribute_cursor)
+    df_attributes.to_csv(r'data/campsite_attributes.csv', header=True)
+
     # unique_attributes = find_unique_attributes(cursor)
     # temp_campsite_dict = cursor.next()
+    
+    #S3 Connection
+    boto3_connection = boto3.resource('s3')
+    bucket_name = 'mt-capstone1-campsite-analysis'
+    s3_client = boto3.client('s3')
 
+    #Writing to S3
+    s3_client.upload_file('data/campsite_structured.csv', bucket_name, 'campsite_structured.csv')
+    s3_client.upload_file('data/campsite_attributes.csv', bucket_name, 'campsite_attributes.csv')
+    
 
-    # client.close()
+    #Close MongoDB
+    client.close()
