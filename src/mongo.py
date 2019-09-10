@@ -100,7 +100,7 @@ if __name__ =='__main__':
     table = db['test']
 
     # test = get_campsites(api_key,3, 0)
-    # write_api_to_mongodb('campsites', 'test',api_key=api_key, num_call=10)
+    write_api_to_mongodb('campsites', 'test',api_key=api_key, num_call=10)
 
     
     # cursor2 = db.test.find({"RECDATA.CampsiteID":'70417'})
