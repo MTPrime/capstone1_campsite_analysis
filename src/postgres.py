@@ -25,6 +25,14 @@ def create_populate_string(cols, table_name, file):
     table_string += ") FROM " + file + " DELIMITER ',' CSV HEADER;"
     return table_string
 
+def combine_columns(table, keep_column, moving_column, psql_pipeline):
+    combine_query = "UPDATE  " + table + " SET " + keep_column + " = " + moving_column + " WHERE "+ keep_column + " is null;"
+    psql_pipeline.add_step(combine_query)
+
+
+
+
+
 if __name__ =='__main__':
 ### connect to the database
     conn = psycopg2.connect(database="campsites", user="postgres", host="localhost", port="5435")
@@ -41,6 +49,12 @@ if __name__ =='__main__':
     df_permitted = pd.read_csv('data/campsite_permitted_equipment_clean.csv')
     equip_cols = df_permitted.columns.tolist()
     
+    #Dropping Tables if they Exist - Note, I tried drop them all as comma seperated values. Combined with the If Exists column it froze. Seperated out instead.
+    tables_list = ['campsites','reservations','equipment','attributes']
+    for i in tables_list:
+        string = "DROP TABLE IF EXISTS " + i + ";"
+        psql_pipeline.add_step(string)
+
     #Campsites Queries
     campsite_create_query = """CREATE TABLE campsites
                             (
@@ -112,6 +126,48 @@ if __name__ =='__main__':
     psql_pipeline.add_step(populate_reservation_count_query)
 
 
-  
+    #Deleting campsites with 0,0 lat/long
+    # lat_long_del = """DELETE FROM attributes 
+    #                 WHERE attributes.campsiteid 
+    #                 in 
+    #                     (SELECT camp.campsiteid 
+    #                     FROM campsites as camp 
+    #                     WHERE campsitelongitude = 0);"""
+    
+    #Deleting campsites created after reservation data
+    created_date_del = """DELETE FROM attributes 
+                        WHERE attributes.campsiteid 
+                        in 
+                            (SELECT camp.campsiteid 
+                            FROM campsites as camp 
+                            WHERE createddate::date >= '2019-01-01'::date);"""
+    psql_pipeline.add_step(created_date_del)
+
+#General Combining 
+    
+    #Condition Rating/Site Rating
+    combine_columns('attributes', 'site_rating', 'condition_rating', psql_pipeline)
+    
+    #Toilets
+    combine_columns('attributes', 'flush_toilets', 'vault_toilets', psql_pipeline)
+    combine_columns('attributes', 'flush_toilets', 'accessible_vault_toilets', psql_pipeline)
+
+    #BBQ
+    combine_columns('attributes', 'bbq', 'grills', psql_pipeline)
+
+    #Showers
+    combine_columns('attributes', 'showers', 'accessible_showers', psql_pipeline)
+    combine_columns('attributes', 'showers', 'shower_bath_type', psql_pipeline)
+
+    #Water Hookups
+    combine_columns('attributes', 'showers', 'water_hookups', psql_pipeline)
+
+    #Tables
+    combine_columns('attributes', 'picnic_tables', 'picnic_table', psql_pipeline)
+    combine_columns('attributes', 'picnic_tables', 'table_and_benches', psql_pipeline)
+    combine_columns('attributes', 'picnic_tables', 'tables', psql_pipeline)
+
+
+
     psql_pipeline.execute()
     psql_pipeline.close()                  
