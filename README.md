@@ -5,9 +5,8 @@ Analyzing the recreation.gov data to find what traits make desirable campsites.
 ## Table of Contents
 
 ## Description
-Recreation.Gov is the US Government's web portal for all its reservation needs. It covers tours, facility rentals, campsites and others.
+Recreation.Gov is the US Government's web portal for all its reservation needs. It covers tours, facility rentals, campsites and more. 
 
-## Case Study Goal
 My goal for this case study was to get the unstructured attribute data for each campsite from the API into a relational database. From there I wanted to determine correlations between attributes and occupancy rates/total number of reservations in order to find what attributes have the greatest effect on campsite reservations. The main focus would be on creating a pipeline for importing this data and charts to illustrate the findings.
 
 ## Repo Instructions
@@ -39,6 +38,54 @@ The second set of data came from Recreation.gov's API. Each campsite call gave a
 
 
 ## Data Wrangling
+One of the issues I struggled with was importing the attributes into a structured format. Each campsite had an unknownn number of variables and unknown categorical value for each variable. 
+
+My first attempt at cracking this was to make dataframes out of the resulting attribute names/values and the campsite id. Then I would use the pd.append() function to dynamically merge dataframes together. The Append function can sort the columns of the two dataframes and will place values where they match or make new columns and fill missing data with NaN values where they don't
+
+Perfect! I don't need to know how many or which attributes each campsite has because Append will sort everything out for me. Except appending a new dataframe for each campsite and having it sort each column and fill NaN values really slows down with size.
+
+        +----------------+--------------+
+        | Number of Rows | Run Time     |
+        |----------------|--------------|
+        |   1000         |       9"     |
+        |   2000         |       10"    |
+        |   3000         |       59"    |
+        |   75284        |   01:40:38"  |
+        +----------------+--------------+
+
+A much better solution is to find distinct attribute values in the MongoDB and use those to create a single dataframe with the campsite id's as the rows, the attributes as the columns, and populate it with NaN values. Then when cycling through each campsite, place attribute values where they belong in the existing dataframe. This cut the time down to 13:06.
+
+The data was now in a relational database and the real cleaning could start! 
+
+Except... the data was not consistent within categories. Here are the results for the attribute - "hike distance to site".
+
+![Hike Distance](img/hike_distance.png "Hike Distance")
+
+Or across column names. Between mispellings, plurals, and singulars the picnic table attribute read in a four different columns.
+
+No problem! I wrote several functions to combine columns and fix the categorical data where I could. (Never did find a solution to identifying the varying units in hike distance to site)
+
+Data cleaned I was ready to start analyzing. 
+
+![Shenango Recreation Park](img/shenango_rec_park.png "Shenango Recreation Park")
+
+First up, I identified a facility, Shenango Recreation Park, with a large number of campsites and reservations. I wanted to look at the top and bottom campsites within this facility to see what attributes were responsible for their popularity, while holding the general location constant.
+
+First up, the most reserved campsite in the camp - 
+
+![Campsite Traits](img/campsite_43717_json.png "Campsite JSON")
+
+Huh, that's strange. CampsiteAccessible is flagged for false. According to the schema, that means the site is inaccessible by car. Why are most of its listed attributes centered around vehicles and driveways? 
+
+Looking through the attributes alone I could not see a reason why this campsite was so popular. Instead I looked it up on the map to find this:
+
+![Campsite Map](img/campsite_43717.png "Campsite Map")
+
+Looking on a map it's easy to see why this campsite would be so desireable, but there is nothing in its listed attributes that would capture this. Other campsites have attributes such as "proximity to water" and "lake access", but they were not used here.
+
+When the cleaned data still has inconsistancies and does not capture important aspects of the campsite, I did not know how I could look at individual campsites and infer the attribute's importance.
+
+Instead I came at it a different way and looked at how having a category listed affected the average number of reservations a campsite got. Here are my results.
 
 ## Results
 
@@ -53,6 +100,8 @@ Top Five Individual Campsites:
 ![Traits vs Popularity](img/traits_vs_popularity.png "Traits versus Popularity")
 
 ![Top 12 traits vs popularity](img/traits_ranked_by_popularity.png "Top 12 traits vs popularity")
+
+
 
 
 
