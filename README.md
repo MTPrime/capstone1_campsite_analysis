@@ -31,12 +31,12 @@ In order to replicate the results in this readme, run the files in the src folde
     3. postgres.py
     4. data_analysis.py
 
-You will need to generate your own API key from recreation.gov. Running the files in that order will query the api, put the results into a MongoDB database, clean attribute names to make them suitable for importing into Postgres
+You will need to generate your own API key from recreation.gov. Running the files in that order will query the API, put the results into a MongoDB database, clean attribute names to make them suitable for importing into Postgres
 
 <a name="ds"></a>
 
 ## Data Sources
-The data came from two main channels. First the reservation data for 2018 was supplied as a single CSV. It was 3,299,805 rows (invidual reservations) bu 57 columns (attributes). The file was large enough (1.72GB CSV) that I ended up using Spark and SQL to group orders by campsite id's and returned the count for each id. I then exported this new smaller dataframe to a csv for importing into Postgres.
+The data came from two main channels. First the reservation data for 2018 was supplied as a single CSV. It was 3,299,805 rows (individual reservations) by 57 columns (attributes). The file was large enough (1.72GB CSV) that I ended up using Spark and SQL to group orders by campsite id's and returned the count for each id. I then exported this new smaller dataframe to a csv for importing into Postgres.
 
         Sample reservation data
         +--------+-----------------+
@@ -49,18 +49,17 @@ The data came from two main channels. First the reservation data for 2018 was su
         |   29573|              124|
         +--------+-----------------+
 
-The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured and an array of semi structured attributes. I say semi structured because they were consistantly labeled in the JSON with keys and value pairs, but the number of attributes and the types of attributes varied by every campsite. It ended up being 75362 rows by 299 attribute columns. 
+The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured and an array of semi structured attributes. I say semi structured because they were consistently labeled in the JSON with keys and value pairs, but the number of attributes and the types of attributes varied by every campsite. It ended up being 75362 rows by 299 attribute columns. 
 
 
 <a name="dw"></a>
 
 ## Data Wrangling
-One of the issues I struggled with was importing the attributes into a structured format. Each campsite had an unknownn number of variables and unknown categorical value for each variable. 
+One of the issues I struggled with was importing the attributes into a structured format. Each campsite had an unknown number of variables and unknown categorical value for each variable. 
 
 My first attempt at cracking this was to make dataframes out of the resulting attribute names/values and the campsite id. Then I would use the pd.append() function to dynamically merge dataframes together. The Append function can sort the columns of the two dataframes and will place values where they match or make new columns and fill missing data with NaN values where they don't
 
 Perfect! I don't need to know how many or which attributes each campsite has because Append will sort everything out for me. Except appending a new dataframe for each campsite and having it sort each column and fill NaN values really slows down with size.
-<p style="text-align: center;">  
 
         +----------------+--------------+
         | Number of Rows | Run Time     |
@@ -71,7 +70,7 @@ Perfect! I don't need to know how many or which attributes each campsite has bec
         |   75284        |   01:40:38"  |
         +----------------+--------------+
        
- </p> 
+ 
 
 A much better solution is to find distinct attribute values in the MongoDB and use those to create a single dataframe with the campsite id's as the rows, the attributes as the columns, and populate it with NaN values. Then when cycling through each campsite, place attribute values where they belong in the existing dataframe. This cut the time down to 13:06.
 
@@ -81,7 +80,7 @@ Except... the data was not consistent within categories. Here are the results fo
 
 ![Hike Distance](img/hike_distance.png "Hike Distance")
 
-Or across column names. Between mispellings, plurals, and singulars the picnic table attribute read in a four different columns.
+Or across column names. Among misspellings, plurals, and singulars the picnic table attribute read in a four different columns.
 
 No problem! I wrote several functions to combine columns and fix the categorical data where I could. (Never did find a solution to identifying the varying units in hike distance to site)
 
@@ -101,11 +100,11 @@ Looking through the attributes alone I could not see a reason why this campsite 
 
 ![Campsite Map](img/campsite_43717.png "Campsite Map")
 
-Looking on a map it's easy to see why this campsite would be so desireable, but there is nothing in its listed attributes that would capture this. Other campsites have attributes such as "proximity to water" and "lake access", but they were not used here.
+Looking on a map it's easy to see why this campsite would be so desirable, but there is nothing in its listed attributes that would capture this. Other campsites have attributes such as "proximity to water" and "lake access", but they were not used here.
 
-I can invision a another project using a program to look at the map and calculate distance from campsites to water visually, but that was outside the scope of this project.
+I can envision another project using a program to look at the map and calculate distance from campsites to water visually, but that was outside the scope of this project.
 
-When the cleaned data still has inconsistancies and does not capture important aspects of the campsite, I did not know how I could look at individual campsites and infer the attribute's importance.
+When the cleaned data still has inconsistencies and does not capture important aspects of the campsite, I did not know how I could look at individual campsites and infer the attribute's importance.
 
 Instead I came at it a different way and looked at how having a category listed affected the average number of reservations a campsite got. Here are my results.
 
@@ -131,7 +130,7 @@ Top Five Individual Campsites:
 <a name="summary"></a>
 
 ## Summary
-Being near water seems to be the best indicator of 
+Proximity to water, especially an ocean, seems to be the single largest contributor to reservation rate in these listed attributes. After that drinking water, showers, flushing toilets, and having a host seem to be indicators of high reservation rates. Unfortunately there are a lot of other factors at play here and it is difficult to draw definite conclusions. A host might be an indicator of a higher end campsite or a desirable location that needs additional supervision. The sample size of these attributes is small compared to the overall population size and the attributes are inconsistently applied. 
 
 <a name="next"></a>
 
