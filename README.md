@@ -1,5 +1,10 @@
 # Capstone 1 - Campsite Analysis or: How I Learned to Stop Worrying and Love Structured Data
+
+
+![Forest Lake](img/IMG_2497.JPG "Forest Lake")
+
 Analyzing the recreation.gov data to find what traits make desirable campsites.
+
 
 
 ## Table of Contents
