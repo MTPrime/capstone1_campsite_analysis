@@ -15,11 +15,14 @@ startTime = datetime.now()
 
 
 def read_sql_tmpfile(query, conn):
+    """
+    Doing several read_sql queries in a row got very slow. Read that saving to a temporary file might improve speed.
+    This is the function to do that.
+    """
     with tempfile.TemporaryFile() as tmpfile:
         copy_sql = "COPY ({query}) TO STDOUT WITH CSV {head}".format(
            query=query, head="HEADER"
         )
-        # conn = db_engine.raw_connection()
         cur = conn.cursor()
         cur.copy_expert(copy_sql, tmpfile)
         tmpfile.seek(0)
@@ -46,15 +49,19 @@ def update_messy_columns(table, column, psql_pipeline, items=0):
     
     psql_pipeline.execute()
     print('Updated')
-    # initial_query_string = "SELECT DISTINCT" + column + " FROM "+ table +";"
 
-def trait_vs_popularity(table, column, conn=0, where=0):
+def trait_vs_popularity(table, column, conn, where=0):
     """
+    Gets the individual values for an attribute column as well as the number of reservations associated with that attribute value.
+    Calculates a ratio of reservations to campsites and saves everything to a dataframe.
+    
+    INPUTS: The where column is there to add the optino for further granularity in the searches.
+    
     OUTPUT: A pandas dataframe with trait vs popularity
     """
     if where == 0:
         count_query = "SELECT DISTINCT " + column+ ", COUNT(*) FROM " + table + " GROUP BY " + column
-        sum_query = "SELECT DISTINCT " + table + "."+ column + ", sum(res.reservation_count) FROM " + table + " LEFT JOIN reservations as res  ON "+ table +".campsiteid = res.campsite_id WHERE res.reservation_count is not null GROUP BY "+ table+ "."+ column
+        sum_query = "SELECT DISTINCT " + table + "."+ column + ", sum(res.reservation_count) FROM " + table + " LEFT JOIN reservations as res  ON "+ table +".campsiteid = res.campsite_id WHERE res.reservation_count is not null GROUP BY "+ table+ "."+ column 
     else:
         count_query = "SELECT DISTINCT " + column+ ", COUNT(*) FROM " + table + " WHERE " + column + " = '" + where +"' GROUP BY " + column
         sum_query = "SELECT DISTINCT " + table + "."+ column + ", sum(res.reservation_count) FROM " + table + " LEFT JOIN reservations as res  ON "+ table +".campsiteid = res.campsite_id WHERE res.reservation_count is not null and " + column + " = '" + where +"' GROUP BY "+ table+ "."+ column
@@ -67,6 +74,21 @@ def trait_vs_popularity(table, column, conn=0, where=0):
 
     return count_and_sum
 
+def attribute_group_traits(table, traits, conn):
+    """
+    Used to gather data on all attributes in the "traits" list in order to graph them in a single bar chart.
+    """
+    df = pd.DataFrame(columns=['trait', 'count', 'sum', 'ratio'])
+    
+    for i in traits:
+        query = "SELECT COUNT(" + table + "."+ i + "), sum(res.reservation_count) FROM " + table + " LEFT JOIN reservations as res  ON "+ table +".campsiteid = res.campsite_id WHERE res.reservation_count is not null and " + table + "." + i + " is not null;"
+        df_temp = pd.read_sql(query, conn)
+        df_temp['trait'] = i
+        df_temp['ratio'] = df_temp['sum']/df_temp['count']
+        df = df.append(df_temp, ignore_index=True)
+    
+    return df
+
 def print_all_attributes(file_name, conn): #pd.read_sql is very inefficient. Need to refactor to use tempfile -return as dictionary
     df_attributes = pd.read_csv(file_name)
     att_list = df_attributes.columns.tolist()
@@ -74,194 +96,106 @@ def print_all_attributes(file_name, conn): #pd.read_sql is very inefficient. Nee
         update_messy_columns('attributes', str(att_list[i]), psql_pipeline)
         df= trait_vs_popularity('attributes', str(att_list[i]), conn)
         print(df)
+
+def bar_plot(ax, trait='trait', conn=0, avg=29, use_df=0, df=0):
+    if use_df==0:
+        df = trait_vs_popularity('attributes', trait, conn)
+        #Drops the NaN values and replaces them with the overall average instead.
+        df.dropna(inplace=True)
     
+    df=df.append({trait:'AVG', 'ratio': avg}, ignore_index=True)
+    df = df.sort_values('ratio')
+    mask =df.where(df[trait]!= 'AVG').isnull()
+    tickLocations = np.arange(len(df))
+    
+    ax.bar(tickLocations, df['ratio'], .5, edgecolor='black', linewidth=.75, color=(mask['ratio'].map({True:'#CC2529', False:'#396AB1'})))
+    ax.set_xticks(ticks = tickLocations)
+    ax.set_xticklabels(df[trait], rotation = 45, ha='right')
+    ax.set_title(trait)
+
+    return ax
+    
+def multi_plotting(trait_list,conn, avg=29):
+    """
+    Meant for 8 traits to make a single 2x4 comparison image
+    """
+    fig, axs = plt.subplots(2, 4, figsize=(20,20), constrained_layout=True)
+
+    for i, ax in enumerate(axs.flatten()):
+        bar_plot(ax, trait_list[i], conn, avg)
+    
+    plt.savefig("img/traits_vs_popularity.png")
+    
+
 if __name__ == '__main__':
 
     conn = psycopg2.connect(database="campsites", user="postgres", host="localhost", port="5435")
     print("connected")
     psql_pipeline = Pipeline(conn)
 
-##Reads in all attributes and prints out their popularity. Used once for general exploratoration
+    ##Reads in all attributes and prints out their popularity. Used once for general exploratoration. Very slow
     # file_name='data/campsite_attributes_clean.csv'
     # print_all_attributes(file_name, conn)
-
-###Reservations by type
-    # reservations_by_type = """SELECT DISTINCT campsitetype, COUNT(*) as res_count from campsites GROUP BY campsitetype ORDER BY COUNT(*) DESC LIMIT 10;"""
+   
+    #Updating columns
+    site_rating_list = [('prefer', 'preferred'), ('standard', 'standar')]
+    update_messy_columns('attributes', 'site_rating', psql_pipeline, site_rating_list)
+    #df_site_rating = trait_vs_popularity('attributes', 'site_rating', conn)
     
-    # data = pd.read_sql(reservations_by_type, conn)
-    
-    
-    # #Plotting the Bar Graph of Res Count by Type
-    # fig, ax = plt.subplots(figsize=(12,6))
-    # tickLocations = np.arange(len(data))
-    # ax.bar(tickLocations, data['res_count'], .8)
-    # ax.set_xticks(ticks = tickLocations)
-    # ax.set_xticklabels(data['campsitetype'], rotation = 45, ha='right')
-    # ax.set_title("Number of Reservations by Campsite Type")
-    # plt.tight_layout(pad=1)
-    # plt.show()
+    prox_water_list = [('island','island,'), ('lakefront', 'lakefront,riverfront')] #Checking the few lakefront,riverfront values showed they came from the same several facilities - all on lakes
+    update_messy_columns('attributes', 'proximity_to_water', psql_pipeline, prox_water_list)
+    #df_prox_water = trait_vs_popularity('attributes', 'proximity_to_water', conn)
 
-    # print(data)
-    
-    # reservations_by_type = """SELECT DISTINCT campsitetype, COUNT(*) as res_count from campsites GROUP BY campsitetype ORDER BY COUNT(*) DESC LIMIT 10;"""    
-    # data = pd.read_sql(reservations_by_type, conn)
+    pets_list =[('horse', 'domestic,horse'), ('yes', 'pets allowed')]
+    update_messy_columns('attributes', 'pets_allowed', psql_pipeline, pets_list)
+    # #df_pets_allowed = trait_vs_popularity('attributes', 'pets_allowed', conn)
 
-#Site Rating Vs Popularity - Great data
-    # site_rating_list = [('prefer', 'preferred'), ('standard', 'standar')]
-    # update_messy_columns('attributes', 'site_rating', psql_pipeline, site_rating_list)
-    # df_site_rating = trait_vs_popularity('attributes', 'site_rating')
+    update_messy_columns('attributes', 'drinking_water', psql_pipeline)
+    # # df_drinking_water = trait_vs_popularity('attributes', 'drinking_water', conn)
 
-#Proximity to Water Vs Popularity -Great Data
-    # prox_water_list = [('island','island,'), ('lakefront', 'lakefront,riverfront')] #Checking the few lakefront,riverfront values showed they came from the same several facilities - all on lakes
-    # update_messy_columns('attributes', 'proximity_to_water', prox_water_list, psql_pipeline)
-    # df_prox_water = trait_vs_popularity('attributes', 'proximity_to_water')
+    update_messy_columns('attributes', 'condition_rating', psql_pipeline)
+    # df_condition_rating= trait_vs_popularity('attributes', 'condition_rating', conn)
 
-#Finding the number of reservations and campsite ids with at least one reservation
-    # data = pd.read_sql('SELECT att.campsiteid, sum(res.reservation_count) FROM attributes as att LEFT JOIN reservations as res  ON att.campsiteid = res.campsite_id WHERE res.reservation_count is not null GROUP BY att.campsiteid;' , conn)
+    update_messy_columns('attributes', 'host', psql_pipeline)
+    # # df_host= trait_vs_popularity('attributes', 'host')
 
-#Boat Dock - boat_dock
-    # update_messy_columns('attributes', 'boat_dock', prox_water_list, psql_pipeline)
-    # df_boat_dock = trait_vs_popularity('attributes', 'boat_dock')
+    update_messy_columns('attributes', 'flush_toilets', psql_pipeline)
+    # # df_flush_toilets= trait_vs_popularity('attributes', 'flush_toilets', conn)
 
-#Lake Access - lake_access
-    # update_messy_columns('attributes', 'lake_access', prox_water_list, psql_pipeline)
-    # df_lake_access = trait_vs_popularity('attributes', 'lake_access')
+    update_messy_columns('attributes', 'showers', psql_pipeline)
+    # # df_showers= trait_vs_popularity('attributes', 'showers')
 
-"""
-#hike_in_distance_to_site  -Super Messy
-    # update_messy_columns('attributes', 'hike_in_distance_to_site', prox_water_list, psql_pipeline)
-    # df_hike_in_distance_to_site = trait_vs_popularity('attributes', 'hike_in_distance_to_site')
-
-#max_num_of_people - Messy, needs cleaning by casting to int
-    # update_messy_columns('attributes', 'max_num_of_people', prox_water_list, psql_pipeline)
-    # df_max_num_of_people = trait_vs_popularity('attributes', 'max_num_of_people')
-"""
-# pets_allowed - Horses Negative, explore income
-#     pets_list =[('horse', 'domestic,horse'), ('yes', 'pets allowed')]
-#     update_messy_columns('attributes', 'pets_allowed', pets_list, psql_pipeline)
-#     df_pets_allowed = trait_vs_popularity('attributes', 'pets_allowed')
-
-#drinking_water - High
-# drinking_water_list = [( '1', 'drinking water')]
-# update_messy_columns('attributes', 'drinking_water', psql_pipeline, drinking_water_list)
-# df_drinking_water = trait_vs_popularity('attributes', 'drinking_water', conn)
-
-# # site_access
-#     site_access_list = [('drive-in', 'drive in'), ('hike-in_drive-in','hike-in,drive-in')]
-#     update_messy_columns('attributes', 'site_access', site_access_list, psql_pipeline)
-#     df_site_access = trait_vs_popularity('attributes', 'site_access')
-
-"""
-# #platform - I don't know what this one means
-#     update_messy_columns('attributes', 'platform', site_access_list, psql_pipeline)
-#     df_platform= trait_vs_popularity('attributes', 'platform')
-"""
-
-#condition_rating
-    # update_messy_columns('attributes', 'condition_rating', site_access_list, psql_pipeline)
-    # df_condition_rating= trait_vs_popularity('attributes', 'condition_rating')
-
-# #shade
-#     shade_list = [('shade', 'shade '), ('yes', 'shade')]
-#     update_messy_columns('attributes', 'shade', psql_pipeline, shade_list)
-#     df_shade= trait_vs_popularity('attributes', 'shade')
-
-#host - High
-    # update_messy_columns('attributes', 'host', psql_pipeline)
-    # df_host= trait_vs_popularity('attributes', 'host')
-
-#flush_toilets
-# update_messy_columns('attributes', 'flush_toilets', psql_pipeline)
-# df_flush_toilets= trait_vs_popularity('attributes', 'flush_toilets', conn)
-
-#showers
-# update_messy_columns('attributes', 'showers', psql_pipeline)
-# df_showers= trait_vs_popularity('attributes', 'showers')
-
-#drinking_water
-# update_messy_columns('attributes', 'drinking_water', psql_pipeline)
-# df_drinking_water= trait_vs_popularity('attributes', 'drinking_water', conn)
-
-#lean_to_shelter
-# lean_to_list = [('yes', 'lean to/shelter'), ('yes','y')]
-# update_messy_columns('attributes', 'lean_to_shelter', psql_pipeline, lean_to_list)
-# df_lean_to_shelter= trait_vs_popularity('attributes', 'lean_to_shelter')
-
-# # #sewer_hookup
-# sewer_hookup_list = [('1', 'sewer hookup'), ('1','y'), ('1', 'yes'), ('0', 'no')]
-# update_messy_columns('attributes', 'sewer_hookup', psql_pipeline, sewer_hookup_list)
-# df_sewer_hookup= trait_vs_popularity('attributes', 'sewer_hookup', conn)
-
-#YURT!!!
-# update_messy_columns('campsites', 'campsitetype', psql_pipeline)
-# df_yurt= trait_vs_popularity('campsites', 'campsitetype', where='yurt')
-
-# #campsitetype
-# update_messy_columns('campsites', 'campsitetype', psql_pipeline)
-# df_campsite_type= trait_vs_popularity('campsites', 'campsitetype')
-
-# df_horses= trait_vs_popularity('equipment', 'horse', conn)
+    update_messy_columns('attributes', 'drinking_water', psql_pipeline)
+    # # df_drinking_water= trait_vs_popularity('attributes', 'drinking_water', conn)
 
 
-#Correlation Matrix Test
-test_query = """SELECT att.drinking_water, res.reservation_count FROM attributes as att LEFT JOIN reservations as res ON att.campsiteid = res.campsite_id;"""
-df = pd.read_sql(test_query, conn)
+    sewer_hookup_list = [('yes', 'sewer hookup'), ('yes','y')]
+    update_messy_columns('attributes', 'sewer_hookup', psql_pipeline, sewer_hookup_list)
+    #df_sewer_hookup= trait_vs_popularity('attributes', 'sewer_hookup', conn)
 
-# title = 'test'
-# text_notes = 'test2'
-# text_loc = 6
-# size = 1
-# f_scale = 1  #1
-# l_width = .08  #.08
-# title_size = 40   #40
-# dpi_size = 200  #300
-# fig_width_height = 50  #40
-# annot_size = 6  #7
+    picnic_tables_list = [('yes', 'picnic table'), ('yes','y'), ('yes', 'picnic tables'), ('yes', 'tables'), ('yes', 'table & benches')]
+    update_messy_columns('attributes', 'picnic_tables', psql_pipeline, picnic_tables_list)
+    #df_picnic_tables= trait_vs_popularity('attributes', 'picnic_tables', conn)
 
-# df_corr = df.corr()
-# sns.set(font_scale=f_scale)
-# hm = sns.heatmap(df_corr, 
-#         xticklabels=df_corr.columns,
-#         yticklabels=df_corr.columns, annot = True, annot_kws={"size": (annot_size)}, cmap="RdBu", vmin=-1, vmax=1, linewidths=l_width).set_title(title, fontsize=title_size)
 
-# heatmap1 = hm.get_figure()
-# print(len(heatmap1.axes))
-# ax = heatmap1.axes[0]
-# ax.text(-text_loc, -text_loc, text_notes, fontsize = 8)
-# heatmap1.set_figwidth(fig_width_height)
-# heatmap1.set_figheight(fig_width_height)
-# plt.show()
+    #Gets the average number of reservations per campsite where campsites have at least 1 reservation.
+    average_res = pd.read_sql("SELECT att.campsiteid, sum(res.reservation_count) FROM attributes as att LEFT JOIN reservations as res  ON att.campsiteid = res.campsite_id WHERE res.reservation_count is not null GROUP BY att.campsiteid;",conn)
+    average_number= average_res['sum'].sum() / average_res['campsiteid'].count()
 
-# corr = df.corr()
-# corr.style.background_gradient(cmap='coolwarm')
-# plt.show()
+    #Graphs 8 of the more interesting traits
+    traits=['site_rating', 'proximity_to_water', 'pets_allowed', 'picnic_tables', 'drinking_water', 'sewer_hookup', 'flush_toilets', 'campfire_allowed'] #'host'
+    multi_plotting(traits, conn, avg=average_number)
 
-# plt.matshow(df.corr())
-# f = plt.figure(figsize=(19, 15))
-# plt.matshow(df.corr(), fignum=f.number)
-# plt.xticks(range(df.shape[1]), df.columns, fontsize=14, rotation=45)
-# plt.yticks(range(df.shape[1]), df.columns, fontsize=14)
-# cb = plt.colorbar()
-# cb.ax.tick_params(labelsize=14)
-# plt.title('Correlation Matrix', fontsize=16)
+    #Graphs the 12 most popular traits against the average on one chart
+    traits=['site_rating', 'proximity_to_water', 'pets_allowed', 'host', 'drinking_water', 'sewer_hookup', 'flush_toilets', 'campfire_allowed', 'food_storage_locker', 'bbq', 'dump_station', 'picnic_tables']
+    group_att = attribute_group_traits('attributes', traits, conn)
 
-# plt.show()
-df[df['drinking_water'] == "1"] = 1
-df[df['drinking_water'] != 1] = 0
-corr = df.corr()
+    fig, ax = plt.subplots(figsize=(10,10))
+    bar_plot(ax, conn, avg=average_number, use_df=1, df=group_att)
 
-# Generate a mask for the upper triangle
-mask = np.zeros_like(corr, dtype=np.bool)
-mask[np.triu_indices_from(mask)] = True
+    plt.savefig("img/traits_ranked_by_popularity.png")
 
-# Set up the matplotlib figure
-f, ax = plt.subplots(figsize=(11, 9))
 
-# Generate a custom diverging colormap
-cmap = sns.diverging_palette(220, 10, as_cmap=True)
+    plt.show()
 
-# Draw the heatmap with the mask and correct aspect ratio
-sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
-            square=True, linewidths=.5, cbar_kws={"shrink": .5})
-
-print(datetime.now() - startTime)
+    print(datetime.now() - startTime)
