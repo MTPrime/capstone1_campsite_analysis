@@ -6,6 +6,22 @@ from datetime import datetime
 startTime = datetime.now()
 
 def create_table_string(cols, table_name):
+    """
+    Takes a list of column names and generates an SQL query to make a new table. Useful because there are a lot of attribute
+    columns and the number read in changes depending on what threshold of NA values are allowed earlier in the cleaning process.
+
+    Note - reads in everything as a varing character in order to avoid 
+    type errors with the uncleaned data. Schema can/should be updated later
+
+    INPUTS: 
+        cols: list - column names from the read in csv
+        table_name: str - name of table to be created
+    
+    OUTPUTS:
+        str: SQL query for creating a new table based on the columns passed in.
+    
+    """
+
     table_string = "CREATE TABLE " + table_name + "( "
     for k, i in enumerate(cols):
         if k == len(cols)-1:
@@ -16,6 +32,14 @@ def create_table_string(cols, table_name):
     return table_string
 
 def create_populate_string(cols, table_name, file):
+    """
+    INPUTS: 
+        cols: list - column names from the read in csv
+        table_name: str - name of table to be created
+        file: CSV file
+    OUTPUTS:
+        str: SQL query for importing data from file into a table based on the columns passed in.
+    """
     table_string = "COPY " + table_name + "( "
     for k, i in enumerate(cols):
         if k == len(cols)-1:
@@ -49,7 +73,7 @@ if __name__ =='__main__':
     df_permitted = pd.read_csv('data/campsite_permitted_equipment_clean.csv')
     equip_cols = df_permitted.columns.tolist()
     
-    #Dropping Tables if they Exist - Note, I tried drop them all as comma seperated values. Combined with the If Exists column it froze. Seperated out instead.
+    #Dropping Tables if they Exist - Note, I tried drop them all as comma seperated values. Combined with the If Exists call it froze. Seperated out instead.
     tables_list = ['campsites','reservations','equipment','attributes']
     for i in tables_list:
         string = "DROP TABLE IF EXISTS " + i + ";"
@@ -157,10 +181,10 @@ if __name__ =='__main__':
 
     #Showers
     combine_columns('attributes', 'showers', 'accessible_showers', psql_pipeline)
-    combine_columns('attributes', 'showers', 'shower_bath_type', psql_pipeline)
+    # combine_columns('attributes', 'showers', 'shower_bath_type', psql_pipeline)
 
     #Water Hookups
-    combine_columns('attributes', 'showers', 'water_hookups', psql_pipeline)
+    combine_columns('attributes', 'water_hookup', 'water_hookups', psql_pipeline)
 
     #Tables
     combine_columns('attributes', 'picnic_tables', 'picnic_table', psql_pipeline)
@@ -168,6 +192,7 @@ if __name__ =='__main__':
     combine_columns('attributes', 'picnic_tables', 'tables', psql_pipeline)
 
 
-
+    
     psql_pipeline.execute()
     psql_pipeline.close()                  
+    print(datetime.now() - startTime)
