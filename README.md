@@ -20,7 +20,7 @@ You will need to generate your own API key from recreation.gov. Running the file
 
 ## Strategy
 
-## Data
+## Data Sources
 The data came from two main channels. First the reservation data for 2018 was supplied as a single CSV. It was 3,299,805 rows (invidual reservations) bu 57 columns (attributes). The file was large enough (1.72GB CSV) that I ended up using Spark and SQL to group orders by campsite id's and returned the count for each id. I then exported this new smaller dataframe to a csv for importing into Postgres.
 
         Sample reservation data
@@ -34,11 +34,15 @@ The data came from two main channels. First the reservation data for 2018 was su
         |   29573|              124|
         +--------+-----------------+
 
+The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured 
+
+
 
 ## Data Wrangling
 
 ## Results
 
+![8 traits vs popularity](img/traits_ranked_by_popularity.png "8 traits vs popularity")
 
 1) Yosemite
 2) Zion
