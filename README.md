@@ -6,6 +6,7 @@ Analyzing the recreation.gov data to find what traits make desirable campsites.
 
 ## Description
 Recreation.Gov is the US Government's web portal for all its reservation needs. It covers tours, facility rentals, campsites and others.
+
 ## Case Study Goal
 My goal for this case study was to get the unstructured attribute data for each campsite from the API into a relational database. From there I wanted to determine correlations between attributes and occupancy rates/total number of reservations in order to find what attributes have the greatest effect on campsite reservations. The main focus would be on creating a pipeline for importing this data and charts to illustrate the findings.
 
@@ -16,9 +17,8 @@ In order to replicate the results in this readme, run the files in the src folde
     2. pandas_cleaning.py
     3. postgres.py
     4. data_analysis.py
-You will need to generate your own API key from recreation.gov. Running the files in that order will query the api, put the results into a MongoDB database, clean attribute names to make them suitable for importing into Postgres
 
-## Strategy
+You will need to generate your own API key from recreation.gov. Running the files in that order will query the api, put the results into a MongoDB database, clean attribute names to make them suitable for importing into Postgres
 
 ## Data Sources
 The data came from two main channels. First the reservation data for 2018 was supplied as a single CSV. It was 3,299,805 rows (invidual reservations) bu 57 columns (attributes). The file was large enough (1.72GB CSV) that I ended up using Spark and SQL to group orders by campsite id's and returned the count for each id. I then exported this new smaller dataframe to a csv for importing into Postgres.
@@ -34,7 +34,7 @@ The data came from two main channels. First the reservation data for 2018 was su
         |   29573|              124|
         +--------+-----------------+
 
-The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured 
+The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured and an array of semi structured attributes. I say semi structured because they were consistantly labeled in the JSON with keys and value pairs, but the number of attributes and the types of attributes varied by every campsite. 
 
 
 
@@ -42,13 +42,19 @@ The second set of data came from Recreation.gov's API. Each campsite call gave a
 
 ## Results
 
-![8 traits vs popularity](img/traits_ranked_by_popularity.png "8 traits vs popularity")
-
+Top Five Individual Campsites:
 1) Yosemite
 2) Zion
 3) Grand Canyon
 4) Yosemite
 5) Sawnee Campground - Georgia
+
+
+![Traits vs Popularity](img/traits_vs_popularity.png "Traits versus Popularity")
+
+![Top 12 traits vs popularity](img/traits_ranked_by_popularity.png "Top 12 traits vs popularity")
+
+
 
 ## Summary
 
