@@ -2,12 +2,36 @@
 Analyzing the recreation.gov data to find what traits make desirable campsites.
 
 
+. [ Description. ](#desc)
+2. [ Usage tips. ](#usage)
+
+<a name="desc"></a>
+## 1. Description
+
+sometext
+
+
+sometext
 ## Table of Contents
+
+1. [Description](#description)
+2. [Repo Instructions](#repo)
+3. [Data Sources](#ds)
+4. [Data Wrangling](#dw)
+5. [Results](#results)
+6. [Summary](#summary)
+7. [Next Steps](#next)
+8. [Technologies Use](#tech)
+
+
+<a name="description"></a>
 
 ## Description
 Recreation.Gov is the US Government's web portal for all its reservation needs. It covers tours, facility rentals, campsites and more. 
 
 My goal for this case study was to get the unstructured attribute data for each campsite from the API into a relational database. From there I wanted to determine correlations between attributes and occupancy rates/total number of reservations in order to find what attributes have the greatest effect on campsite reservations. The main focus would be on creating a pipeline for importing this data and charts to illustrate the findings.
+
+<a name="repo"></a>
 
 ## Repo Instructions
 In order to replicate the results in this readme, run the files in the src folder in the following order:
@@ -18,6 +42,8 @@ In order to replicate the results in this readme, run the files in the src folde
     4. data_analysis.py
 
 You will need to generate your own API key from recreation.gov. Running the files in that order will query the api, put the results into a MongoDB database, clean attribute names to make them suitable for importing into Postgres
+
+<a name="ds"></a>
 
 ## Data Sources
 The data came from two main channels. First the reservation data for 2018 was supplied as a single CSV. It was 3,299,805 rows (invidual reservations) bu 57 columns (attributes). The file was large enough (1.72GB CSV) that I ended up using Spark and SQL to group orders by campsite id's and returned the count for each id. I then exported this new smaller dataframe to a csv for importing into Postgres.
@@ -33,9 +59,10 @@ The data came from two main channels. First the reservation data for 2018 was su
         |   29573|              124|
         +--------+-----------------+
 
-The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured and an array of semi structured attributes. I say semi structured because they were consistantly labeled in the JSON with keys and value pairs, but the number of attributes and the types of attributes varied by every campsite. 
+The second set of data came from Recreation.gov's API. Each campsite call gave a combination of 11 consistent, structured and an array of semi structured attributes. I say semi structured because they were consistantly labeled in the JSON with keys and value pairs, but the number of attributes and the types of attributes varied by every campsite. It ended up being 75362 rows by 299 attribute columns. 
 
 
+<a name="dw"></a>
 
 ## Data Wrangling
 One of the issues I struggled with was importing the attributes into a structured format. Each campsite had an unknownn number of variables and unknown categorical value for each variable. 
@@ -83,9 +110,13 @@ Looking through the attributes alone I could not see a reason why this campsite 
 
 Looking on a map it's easy to see why this campsite would be so desireable, but there is nothing in its listed attributes that would capture this. Other campsites have attributes such as "proximity to water" and "lake access", but they were not used here.
 
+I can invision a another project using a program to look at the map and calculate distance from campsites to water visually, but that was outside the scope of this project.
+
 When the cleaned data still has inconsistancies and does not capture important aspects of the campsite, I did not know how I could look at individual campsites and infer the attribute's importance.
 
 Instead I came at it a different way and looked at how having a category listed affected the average number of reservations a campsite got. Here are my results.
+
+<a name="results"></a>
 
 ## Results
 
@@ -104,8 +135,22 @@ Top Five Individual Campsites:
 
 
 
+<a name="summary"></a>
 
 ## Summary
+Being near water seems to be the best indicator of 
 
+<a name="next"></a>
 
-##
+## Next Steps
+ A feature that is not captured in the data, but I suspect is important for campsite reservations, is the distance from the campsite to a major metropolitan area. I want to use the Lat/Long for each campsite and make API calls an open source routing service to get information on driving times, distances, and elevations of the campsites. With this route/distance data I would do a hypothesis test that distance is a significant factor in occupancy rates.
+
+<a name="tech"></a>
+ ## Technologies Used
+ 1) Python
+ 2) Pandas
+ 3) Matplotlib
+ 4) MongoDB
+ 5) Spark
+ 6) Postgres
+ 
