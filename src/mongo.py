@@ -1,6 +1,5 @@
 from pymongo import MongoClient
 from api_calls import get_campsites
-import json
 import pandas as pd 
 import numpy as np 
 import os 
@@ -15,7 +14,7 @@ def write_api_to_mongodb(db, table, api_key, client=MongoClient('localhost', 270
     db = client[db]
     table = db[table]
     
-    #Loops through the API calls at the largest chunksize available.
+    #Loops through the API calls at the largest chunksize available. (50)
     for i in range(num_call):
         campsite_chunk = get_campsites(api_key,limit, (i*50))
         table.insert_many(campsite_chunk['RECDATA'])
@@ -39,10 +38,10 @@ def find_unique_attributes(cursor, array_name='ATTRIBUTES', att_name='AttributeN
             temp_campsite_dict = cursor.next()
         except:
             return attribute_set 
-        # print(f"This is the attribute length: {len(temp_campsite_dict)}")
+            
         for i in range(len(temp_campsite_dict[array_name])):
             attribute_set.add(temp_campsite_dict[array_name][i][att_name])
-
+    
 def unstructured_data_to_panda(cursor, df, array_name = 'ATTRIBUTES', att_name='AttributeName', att_val='AttributeValue'):
     """
     Attributes, media information, and permitted equipment come in as arrays with variable key values.
