@@ -3,7 +3,9 @@ import json
 
 
 def get_campsites(api_key, limit=50, offset=0):
-
+    """
+    The limit is the chunksize. 50 is the max allowed by recreation.gov for the campsite api.
+    """
     request_url = 'https://ridb.recreation.gov/api/v1/campsites?limit=' + str(limit) + '&offset=' + str(offset)
     api_data = {
         "accept": "application/json",
@@ -15,4 +17,4 @@ def get_campsites(api_key, limit=50, offset=0):
 
 if __name__ =='__main__':
     print('hello')
-    # test = get_campsites(api_key,1,0)
+    
