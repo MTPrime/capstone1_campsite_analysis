@@ -2,16 +2,6 @@
 Analyzing the recreation.gov data to find what traits make desirable campsites.
 
 
-. [ Description. ](#desc)
-2. [ Usage tips. ](#usage)
-
-<a name="desc"></a>
-## 1. Description
-
-sometext
-
-
-sometext
 ## Table of Contents
 
 1. [Description](#description)
@@ -70,6 +60,7 @@ One of the issues I struggled with was importing the attributes into a structure
 My first attempt at cracking this was to make dataframes out of the resulting attribute names/values and the campsite id. Then I would use the pd.append() function to dynamically merge dataframes together. The Append function can sort the columns of the two dataframes and will place values where they match or make new columns and fill missing data with NaN values where they don't
 
 Perfect! I don't need to know how many or which attributes each campsite has because Append will sort everything out for me. Except appending a new dataframe for each campsite and having it sort each column and fill NaN values really slows down with size.
+<p style="text-align: center;">  
 
         +----------------+--------------+
         | Number of Rows | Run Time     |
@@ -79,6 +70,8 @@ Perfect! I don't need to know how many or which attributes each campsite has bec
         |   3000         |       59"    |
         |   75284        |   01:40:38"  |
         +----------------+--------------+
+       
+ </p> 
 
 A much better solution is to find distinct attribute values in the MongoDB and use those to create a single dataframe with the campsite id's as the rows, the attributes as the columns, and populate it with NaN values. Then when cycling through each campsite, place attribute values where they belong in the existing dataframe. This cut the time down to 13:06.
 
